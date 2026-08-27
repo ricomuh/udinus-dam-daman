@@ -21,6 +21,7 @@ export class BootScene extends Phaser.Scene {
 
     // Board
     this.load.image('papan', 'assets/images/board/papan.png');
+    this.load.image('guide', 'assets/images/board/Guide_1.png');
 
     // Pieces — merah
     this.load.image('batu_merah_1', 'assets/images/pieces/batu_merah_1.png');
