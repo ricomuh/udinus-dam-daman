@@ -269,14 +269,19 @@ export class GameScene extends Phaser.Scene {
       : this.add.circle(W - 60, H - 60, 35, COLOR_P1).setDepth(50);
 
     // ── Dead piece rows ────────────────────────────────────────
-    // Di atas board (menghadap musuh/P2): batu P1 merah yang mati berjejer
-    // Di bawah board (menghadap kita/P1): batu P2 biru yang mati berjejer
-    const topNodeY  = this._nodeXY(0).y;   // node paling atas (top ext)
-    const botNodeY  = this._nodeXY(34).y;  // node paling bawah (bot ext)
+    // Di atas board: batu P1 merah yang mati berjejer (center)
+    // Di bawah board: batu P2 biru yang mati berjejer (center)
+    const topNodeY  = this._nodeXY(0).y;
+    const botNodeY  = this._nodeXY(34).y;
     const deadGap   = 55;
 
-    this._deadRowP1 = { y: topNodeY - deadGap, sprites: [], startX: 80 };
-    this._deadRowP2 = { y: botNodeY + deadGap, sprites: [], startX: 80 };
+    // Center dead row — mulai dari tengah layar - (maxPieces/2 * spacing)
+    const deadSpacing = 54;
+    const maxDead = 16;
+    const deadStartX = W/2 - (maxDead / 2) * deadSpacing + deadSpacing / 2;
+
+    this._deadRowP1 = { y: topNodeY - deadGap, sprites: [], startX: deadStartX };
+    this._deadRowP2 = { y: botNodeY + deadGap, sprites: [], startX: deadStartX };
 
     this._updateHUD();
   }
@@ -420,8 +425,9 @@ export class GameScene extends Phaser.Scene {
       this._highlights.push(glow);
 
     } else if (color === COLOR_CAPTURE) {
-      // Dashed circle putih muter di posisi tujuan (bukan X — X ada di piece musuh)
-      const g = this.add.graphics().setDepth(14);
+      // Dashed circle putih muter di posisi tujuan capture
+      const container = this.add.container(x, y).setDepth(14);
+      const g = this.add.graphics();
       g.lineStyle(5, 0xffffff, 0.85);
       const segs = 12, r = 36;
       for (let i = 0; i < segs; i++) {
@@ -429,17 +435,18 @@ export class GameScene extends Phaser.Scene {
           const a1 = (i / segs) * Math.PI * 2;
           const a2 = ((i + 0.7) / segs) * Math.PI * 2;
           g.beginPath();
-          g.arc(x, y, r, a1, a2, false);
+          g.arc(0, 0, r, a1, a2, false);
           g.strokePath();
         }
       }
-      // Animasi rotasi
-      this.tweens.add({ targets: g, angle: 360, duration: 1200, repeat: -1, ease: 'Linear' });
-      this._highlights.push(g);
+      container.add(g);
+      this.tweens.add({ targets: container, angle: 360, duration: 1200, repeat: -1, ease: 'Linear' });
+      this._highlights.push(container);
 
     } else {
-      // Dashed circle putih berputar untuk posisi gerak kosong
-      const g = this.add.graphics().setDepth(14);
+      // Dashed circle hijau muter untuk posisi gerak kosong
+      const container = this.add.container(x, y).setDepth(14);
+      const g = this.add.graphics();
       g.lineStyle(5, 0x2ecc71, 0.9);
       const segs = 12, r = 36;
       for (let i = 0; i < segs; i++) {
@@ -447,12 +454,13 @@ export class GameScene extends Phaser.Scene {
           const a1 = (i / segs) * Math.PI * 2;
           const a2 = ((i + 0.7) / segs) * Math.PI * 2;
           g.beginPath();
-          g.arc(x, y, r, a1, a2, false);
+          g.arc(0, 0, r, a1, a2, false);
           g.strokePath();
         }
       }
-      this.tweens.add({ targets: g, angle: 360, duration: 1500, repeat: -1, ease: 'Linear' });
-      this._highlights.push(g);
+      container.add(g);
+      this.tweens.add({ targets: container, angle: 360, duration: 1500, repeat: -1, ease: 'Linear' });
+      this._highlights.push(container);
     }
   }
 
