@@ -293,14 +293,23 @@ export class GameScene extends Phaser.Scene {
     this.p2CountText?.setText(`×${p2}`);
   }
 
-  // Tambahkan dead piece icon ke baris mati
+  // Tambahkan dead piece icon ke baris mati — centered per jumlah
   _addDeadPiece(player) {
     const row = player === 0 ? this._deadRowP1 : this._deadRowP2;
     if (!row) return;
-    const idx = row.sprites.length;
-    const x = (row.startX ?? 80) + idx * 54;
+    // Recenter seluruh row setiap kali ada tambahan
+    const W = this.scale.width;
+    const spacing = 54;
+    const newCount = row.sprites.length + 1;
+    const totalW = newCount * spacing;
+    const startX = W / 2 - totalW / 2 + spacing / 2;
+
+    // Reposition sprite yang sudah ada
+    row.sprites.forEach((sp, i) => { sp.x = startX + i * spacing; });
+
+    const x = startX + row.sprites.length * spacing;
     const color = player === 0 ? 'merah' : 'biru';
-    const variant = (idx % 3) + 1;
+    const variant = (row.sprites.length % 3) + 1;
     const key = `batu_${color}_${variant}`;
     let sp;
     if (this.textures.exists(key)) {
