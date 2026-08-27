@@ -37,19 +37,19 @@ const N = NODE_POS.length; // 37
 const EXTRA_EDGES = [
   // top segitiga internal
   [3, 4], [4, 5],
-  // top segitiga → row 0
-  [3, 8], [5, 8],
+  // top segitiga → row 0 (3→8, 4→7/8/9, 5→8)
+  [3, 8], [4, 7], [4, 8], [4, 9], [5, 8],
   // top extension internal
   [0, 1], [1, 2],
-  // top extension → top segitiga (tambah 0-3, 2-5; hapus 2-4)
+  // top extension → top segitiga
   [0, 3], [1, 4], [2, 5],
   // bottom segitiga internal
   [31, 32], [32, 33],
-  // bottom segitiga → row 4 (mirror: 31-28, 33-28)
-  [31, 28], [33, 28],
+  // bottom segitiga → row 4 (31→28, 32→27/28/29, 33→28)
+  [31, 28], [32, 27], [32, 28], [32, 29], [33, 28],
   // bottom extension internal
   [34, 35], [35, 36],
-  // bottom extension → bottom segitiga (mirror of top: 34-31, 35-32, 36-33)
+  // bottom extension → bottom segitiga
   [34, 31], [35, 32], [36, 33],
 ];
 
