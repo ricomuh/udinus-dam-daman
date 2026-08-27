@@ -38,6 +38,9 @@ export class BootScene extends Phaser.Scene {
     this.load.image('icon2_ellipse',   'assets/images/icons/Icon2_ellipse.png');
     this.load.image('icon1_rectangle', 'assets/images/icons/Icon1_rectangle.png');
     this.load.image('icon2_rectangle', 'assets/images/icons/Icon2_rectangle.png');
+    this.load.image('hud_char_frame',  'assets/images/ui/hud_char_frame.png');
+    this.load.image('icon_account',    'assets/images/ui/icon_account.png');
+    this.load.image('bg_gameplay',     'assets/images/bg/BACKGROUND.png');
   }
 
   create() {

@@ -113,16 +113,11 @@ export class GameScene extends Phaser.Scene {
     const W = this.scale.width;
     const H = this.scale.height;
 
-    // Background
-    if (this.textures.exists('bg_main')) {
-      this.add.image(W/2, H/2, 'bg_main').setDisplaySize(W, H).setDepth(0);
+    // Background gameplay (BACKGROUND.png rotated portrait)
+    if (this.textures.exists('bg_gameplay')) {
+      this.add.image(W/2, H/2, 'bg_gameplay').setDisplaySize(W, H).setDepth(0);
     } else {
       this.add.rectangle(W/2, H/2, W, H, 0x1a1a2e).setDepth(0);
-    }
-
-    // Board backdrop
-    if (this.textures.exists('papan')) {
-// board drawn in _drawBoard()
     }
 
     this._drawBoard();
@@ -229,29 +224,55 @@ export class GameScene extends Phaser.Scene {
   // ── HUD ───────────────────────────────────────────────────────
   _createHUD() {
     const W = this.scale.width;
+    const H = this.scale.height;
+    const PIECE_SIZE = 52; // ukuran kecil untuk dead piece display
 
-    this.turnBg = this.add.rectangle(W/2, 120, 700, 100, COLOR_P1, 1).setDepth(50);
-    this.turnText = this.add.text(W/2, 120, 'Giliran: MERAH (Kamu)', {
-      fontFamily: 'Arial Black, Arial', fontSize: '40px', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(51);
+    // ── Top HUD: musuh (P2 biru) ──────────────────────────────
+    // pojok kiri atas: icon batu biru + count
+    const p2PieceIcon = this.textures.exists('batu_biru_1')
+      ? this.add.image(60, 60, 'batu_biru_1').setDisplaySize(70, 70).setDepth(50)
+      : this.add.circle(60, 60, 35, COLOR_P2).setDepth(50);
+    this.p2CountText = this.add.text(105, 38, '×16', {
+      fontFamily: 'Arial Black', fontSize: '44px', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 4,
+    }).setDepth(51);
 
-    this.p1CountText = this.add.text(60, 220, '🔴 ×16', {
-      fontSize: '42px', color: '#e74c3c', fontFamily: 'Arial Black',
-    }).setDepth(50);
-    this.p2CountText = this.add.text(W - 60, 220, '16× 🔵', {
-      fontSize: '42px', color: '#3498db', fontFamily: 'Arial Black',
-    }).setOrigin(1, 0).setDepth(50);
+    // pojok kanan atas: username + icon user (right aligned)
+    if (this.textures.exists('icon_account')) {
+      this.add.image(W - 55, 55, 'icon_account').setDisplaySize(65, 65).setDepth(50);
+    }
+    this.p2NameText = this.add.text(W - 85, 38, 'Lawan', {
+      fontFamily: 'Arial Black', fontSize: '40px', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(1, 0).setDepth(51);
 
-    this.msgBg = this.add.rectangle(W/2, 1780, 900, 90, 0x000000, 0.6).setDepth(50);
-    this.msgText = this.add.text(W/2, 1780, 'Pilih unit untuk digerakkan', {
-      fontFamily: 'Arial, sans-serif', fontSize: '36px', color: '#ffffff',
-      wordWrap: { width: 860 },
-    }).setOrigin(0.5).setDepth(51);
+    // ── Bottom HUD: kita (P1 merah) ───────────────────────────
+    // pojok kiri bawah: username
+    if (this.textures.exists('icon_account')) {
+      this.add.image(55, H - 55, 'icon_account').setDisplaySize(65, 65).setDepth(50);
+    }
+    this.p1NameText = this.add.text(85, H - 78, 'Kamu', {
+      fontFamily: 'Arial Black', fontSize: '40px', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 4,
+    }).setDepth(51);
 
-    this.add.text(80, 60, '← Menu', {
-      fontSize: '38px', color: '#ffffff', fontFamily: 'Arial',
-    }).setDepth(51).setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.scene.start('MainMenuScene'));
+    // pojok kanan bawah: icon batu merah + count
+    this.p1CountText = this.add.text(W - 105, H - 78, '×16', {
+      fontFamily: 'Arial Black', fontSize: '44px', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(1, 0).setDepth(51);
+    const p1PieceIcon = this.textures.exists('batu_merah_1')
+      ? this.add.image(W - 60, H - 60, 'batu_merah_1').setDisplaySize(70, 70).setDepth(50)
+      : this.add.circle(W - 60, H - 60, 35, COLOR_P1).setDepth(50);
+
+    // ── Dead piece rows ────────────────────────────────────────
+    // Di atas board (arah musuh): batu kita yang mati → P1 (merah) dead
+    // Di bawah board: batu musuh yang mati → P2 (biru) dead
+    const boardTop = this._nodeXY(3).y - CELL_H * 0.8;  // atas segitiga
+    const boardBot = this._nodeXY(32).y + CELL_H * 0.8; // bawah segitiga
+
+    this._deadRowP1 = { y: boardTop - 30, sprites: [] };   // merah mati → atas board
+    this._deadRowP2 = { y: boardBot + 30, sprites: [] };   // biru mati → bawah board
 
     this._updateHUD();
   }
@@ -259,16 +280,29 @@ export class GameScene extends Phaser.Scene {
   _updateHUD() {
     const p1 = this.pieces.filter(p => p.alive && p.player === 0).length;
     const p2 = this.pieces.filter(p => p.alive && p.player === 1).length;
-    this.p1CountText.setText(`🔴 ×${p1}`);
-    this.p2CountText.setText(`${p2}× 🔵`);
-
-    const names = ['MERAH (Kamu)', 'BIRU (Lawan)'];
-    const colors = [COLOR_P1, COLOR_P2];
-    this.turnText.setText(`Giliran: ${names[this.currentTurn]}`);
-    this.turnBg.setFillStyle(colors[this.currentTurn]);
+    this.p1CountText?.setText(`×${p1}`);
+    this.p2CountText?.setText(`×${p2}`);
   }
 
-  _showMsg(msg) { this.msgText?.setText(msg); }
+  // Tambahkan dead piece icon ke baris mati
+  _addDeadPiece(player) {
+    const row = player === 0 ? this._deadRowP1 : this._deadRowP2;
+    if (!row) return;
+    const idx = row.sprites.length;
+    const x = 80 + idx * 58;
+    const color = player === 0 ? 'merah' : 'biru';
+    const variant = (idx % 3) + 1;
+    const key = `batu_${color}_${variant}`;
+    let sp;
+    if (this.textures.exists(key)) {
+      sp = this.add.image(x, row.y, key).setDisplaySize(50, 50).setDepth(52).setAlpha(0.7);
+    } else {
+      sp = this.add.circle(x, row.y, 22, player === 0 ? COLOR_P1 : COLOR_P2).setDepth(52).setAlpha(0.7);
+    }
+    row.sprites.push(sp);
+  }
+
+  _showMsg(_msg) { /* text status dihapus per brief */ }
 
   // ── Input ─────────────────────────────────────────────────────
   _onPointerDown(pointer) {
@@ -358,10 +392,42 @@ export class GameScene extends Phaser.Scene {
 
   _highlightNode(node, color) {
     const { x, y } = this._nodeXY(node);
-    const ring = this.add.circle(x, y, 42, color, 0.35).setDepth(15);
-    ring.setStrokeStyle(4, color, 1);
     this._highlights ??= [];
-    this._highlights.push(ring);
+
+    if (color === COLOR_SELECT) {
+      // Glow pada piece yang dipilih
+      const glow = this.add.graphics().setDepth(14);
+      glow.fillStyle(0xffff00, 0.25);
+      glow.fillCircle(x, y, 54);
+      glow.lineStyle(6, 0xffff00, 0.9);
+      glow.strokeCircle(x, y, 54);
+      this._highlights.push(glow);
+
+    } else if (color === COLOR_CAPTURE) {
+      // X merah di atas pion musuh yang bisa dimakan
+      const g = this.add.graphics().setDepth(20);
+      g.lineStyle(8, 0xff2222, 1);
+      const r = 28;
+      g.beginPath(); g.moveTo(x - r, y - r); g.lineTo(x + r, y + r); g.strokePath();
+      g.beginPath(); g.moveTo(x + r, y - r); g.lineTo(x - r, y + r); g.strokePath();
+      this._highlights.push(g);
+
+    } else {
+      // Dashed circle outline untuk posisi gerak kosong
+      const g = this.add.graphics().setDepth(14);
+      g.lineStyle(5, 0xffffff, 0.85);
+      const segs = 12, r = 36;
+      for (let i = 0; i < segs; i++) {
+        if (i % 2 === 0) {
+          const a1 = (i / segs) * Math.PI * 2;
+          const a2 = ((i + 0.7) / segs) * Math.PI * 2;
+          g.beginPath();
+          g.arc(x, y, r, a1, a2, false);
+          g.strokePath();
+        }
+      }
+      this._highlights.push(g);
+    }
   }
 
   // ── Move calculation ──────────────────────────────────────────
@@ -439,6 +505,7 @@ export class GameScene extends Phaser.Scene {
 
   _capturePiece(piece) {
     piece.alive = false;
+    this._addDeadPiece(piece.player);
     this.tweens.add({
       targets: piece.sprite,
       alpha: 0, scaleX: 0, scaleY: 0,
