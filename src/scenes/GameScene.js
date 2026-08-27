@@ -13,9 +13,9 @@ import Phaser from 'phaser';
 
 // ── Board geometry ──────────────────────────────────────────────
 const BOARD_X = 540;
-const BOARD_Y = 1000;
-const CELL_W  = 155;
-const CELL_H  = 175;
+const BOARD_Y = 960;
+const CELL_W  = 108;
+const CELL_H  = 120;
 
 const NODE_POS = [
   [1, -2], [2, -2], [3, -2],                // 0-2 top ext
