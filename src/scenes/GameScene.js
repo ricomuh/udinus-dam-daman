@@ -125,7 +125,6 @@ export class GameScene extends Phaser.Scene {
 
     this._drawBoard();
     this._initPieces();
-    this._labelNodes();
     this._createHUD();
 
     this.input.on('pointerdown', this._onPointerDown, this);
@@ -166,20 +165,6 @@ export class GameScene extends Phaser.Scene {
         .setScale(scale)
         .setDepth(2)
         .setAlpha(0.95);
-    }
-  }
-
-  _labelNodes() {
-    // Label node di atas pieces (depth 100)
-    for (let i = 0; i < N; i++) {
-      const { x, y } = this._nodeXY(i);
-      this.add.text(x, y, String(i), {
-        fontSize: '22px',
-        color: '#ffff00',
-        fontFamily: 'Arial Black',
-        stroke: '#000000',
-        strokeThickness: 3,
-      }).setOrigin(0.5).setDepth(100);
     }
   }
 
@@ -233,39 +218,39 @@ export class GameScene extends Phaser.Scene {
     // ── Top HUD: musuh (P2 biru) ──────────────────────────────
     // pojok kiri atas: icon batu biru + count
     const p2PieceIcon = this.textures.exists('batu_biru_1')
-      ? this.add.image(60, 60, 'batu_biru_1').setDisplaySize(70, 70).setDepth(50)
+      ? this.add.image(60, 60, 'batu_biru_1').setDisplaySize(90, 90).setDepth(50)
       : this.add.circle(60, 60, 35, COLOR_P2).setDepth(50);
     this.p2CountText = this.add.text(105, 38, '×16', {
-      fontFamily: 'Arial Black', fontSize: '44px', color: '#ffffff',
+      fontFamily: 'LilitaOne', fontSize: '44px', color: '#ffffff',
       stroke: '#000000', strokeThickness: 4,
     }).setDepth(51);
 
     // pojok kanan atas: username + icon user (right aligned)
     if (this.textures.exists('icon_account')) {
-      this.add.image(W - 55, 55, 'icon_account').setDisplaySize(65, 65).setDepth(50);
+      this.add.image(W - 55, 55, 'icon_account').setDisplaySize(72, 72).setDepth(50);
     }
-    this.p2NameText = this.add.text(W - 85, 38, 'Lawan', {
-      fontFamily: 'Arial Black', fontSize: '40px', color: '#ffffff',
+    this.p2NameText = this.add.text(W - 95, 38, 'Lawan', {
+      fontFamily: 'LilitaOne', fontSize: '40px', color: '#ffffff',
       stroke: '#000000', strokeThickness: 4,
     }).setOrigin(1, 0).setDepth(51);
 
     // ── Bottom HUD: kita (P1 merah) ───────────────────────────
     // pojok kiri bawah: username
     if (this.textures.exists('icon_account')) {
-      this.add.image(55, H - 55, 'icon_account').setDisplaySize(65, 65).setDepth(50);
+      this.add.image(55, H - 55, 'icon_account').setDisplaySize(72, 72).setDepth(50);
     }
-    this.p1NameText = this.add.text(85, H - 78, 'Kamu', {
-      fontFamily: 'Arial Black', fontSize: '40px', color: '#ffffff',
+    this.p1NameText = this.add.text(95, H - 78, 'Kamu', {
+      fontFamily: 'LilitaOne', fontSize: '40px', color: '#ffffff',
       stroke: '#000000', strokeThickness: 4,
     }).setDepth(51);
 
     // pojok kanan bawah: icon batu merah + count
     this.p1CountText = this.add.text(W - 105, H - 78, '×16', {
-      fontFamily: 'Arial Black', fontSize: '44px', color: '#ffffff',
+      fontFamily: 'LilitaOne', fontSize: '44px', color: '#ffffff',
       stroke: '#000000', strokeThickness: 4,
     }).setOrigin(1, 0).setDepth(51);
     const p1PieceIcon = this.textures.exists('batu_merah_1')
-      ? this.add.image(W - 60, H - 60, 'batu_merah_1').setDisplaySize(70, 70).setDepth(50)
+      ? this.add.image(W - 60, H - 60, 'batu_merah_1').setDisplaySize(90, 90).setDepth(50)
       : this.add.circle(W - 60, H - 60, 35, COLOR_P1).setDepth(50);
 
     // ── Dead piece rows ────────────────────────────────────────
@@ -273,7 +258,7 @@ export class GameScene extends Phaser.Scene {
     // Di bawah board: batu P2 biru yang mati berjejer (center)
     const topNodeY  = this._nodeXY(0).y;
     const botNodeY  = this._nodeXY(34).y;
-    const deadGap   = 110;  // jauhan dari board
+    const deadGap   = 220;  // 2x jauhan dari board
 
     // Center dead row — mulai dari tengah layar - (maxPieces/2 * spacing)
     const deadSpacing = 54;

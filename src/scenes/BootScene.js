@@ -44,6 +44,24 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    this.scene.start('MainMenuScene');
+    // Inject @font-face for LilitaOne so Phaser text objects can use it
+    const style = document.createElement('style');
+    style.textContent = `
+      @font-face {
+        font-family: 'LilitaOne';
+        src: url('assets/fonts/LilitaOne-Regular.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Pre-load the font so it's ready before GameScene renders text
+    document.fonts.load('40px LilitaOne').then(() => {
+      this.scene.start('MainMenuScene');
+    }).catch(() => {
+      // Font failed to load — proceed anyway
+      this.scene.start('MainMenuScene');
+    });
   }
 }
