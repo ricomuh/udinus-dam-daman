@@ -273,7 +273,7 @@ export class GameScene extends Phaser.Scene {
     // Di bawah board: batu P2 biru yang mati berjejer (center)
     const topNodeY  = this._nodeXY(0).y;
     const botNodeY  = this._nodeXY(34).y;
-    const deadGap   = 55;
+    const deadGap   = 110;  // jauhan dari board
 
     // Center dead row — mulai dari tengah layar - (maxPieces/2 * spacing)
     const deadSpacing = 54;
@@ -313,9 +313,9 @@ export class GameScene extends Phaser.Scene {
     const key = `batu_${color}_${variant}`;
     let sp;
     if (this.textures.exists(key)) {
-      sp = this.add.image(x, row.y, key).setDisplaySize(46, 46).setDepth(52).setAlpha(0.75);
+      sp = this.add.image(x, row.y, key).setDisplaySize(95, 95).setDepth(52).setAlpha(0.85);
     } else {
-      sp = this.add.circle(x, row.y, 20, player === 0 ? COLOR_P1 : COLOR_P2).setDepth(52).setAlpha(0.75);
+      sp = this.add.circle(x, row.y, 44, player === 0 ? COLOR_P1 : COLOR_P2).setDepth(52).setAlpha(0.85);
     }
     row.sprites.push(sp);
   }
