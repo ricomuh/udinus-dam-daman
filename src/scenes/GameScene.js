@@ -14,8 +14,11 @@ import Phaser from 'phaser';
 // ── Board geometry ──────────────────────────────────────────────
 const BOARD_X = 540;
 const BOARD_Y = 960;
-const CELL_W  = 108;
-const CELL_H  = 120;
+const _CELL_W0  = 108;
+const _CELL_H0  = 120;
+const _S = 1.15;
+const CELL_W  = _CELL_W0 * _S;
+const CELL_H  = _CELL_H0 * _S;
 
 const NODE_POS = [
   [0, -2], [2, -2], [4, -2],                // 0-2 top ext
@@ -266,13 +269,14 @@ export class GameScene extends Phaser.Scene {
       : this.add.circle(W - 60, H - 60, 35, COLOR_P1).setDepth(50);
 
     // ── Dead piece rows ────────────────────────────────────────
-    // Di atas board (arah musuh): batu kita yang mati → P1 (merah) dead
-    // Di bawah board: batu musuh yang mati → P2 (biru) dead
-    const boardTop = this._nodeXY(3).y - CELL_H * 0.8;  // atas segitiga
-    const boardBot = this._nodeXY(32).y + CELL_H * 0.8; // bawah segitiga
+    // Di atas board (menghadap musuh/P2): batu P1 merah yang mati berjejer
+    // Di bawah board (menghadap kita/P1): batu P2 biru yang mati berjejer
+    const topNodeY  = this._nodeXY(0).y;   // node paling atas (top ext)
+    const botNodeY  = this._nodeXY(34).y;  // node paling bawah (bot ext)
+    const deadGap   = 55;
 
-    this._deadRowP1 = { y: boardTop - 30, sprites: [] };   // merah mati → atas board
-    this._deadRowP2 = { y: boardBot + 30, sprites: [] };   // biru mati → bawah board
+    this._deadRowP1 = { y: topNodeY - deadGap, sprites: [], startX: 80 };
+    this._deadRowP2 = { y: botNodeY + deadGap, sprites: [], startX: 80 };
 
     this._updateHUD();
   }
@@ -289,15 +293,15 @@ export class GameScene extends Phaser.Scene {
     const row = player === 0 ? this._deadRowP1 : this._deadRowP2;
     if (!row) return;
     const idx = row.sprites.length;
-    const x = 80 + idx * 58;
+    const x = (row.startX ?? 80) + idx * 54;
     const color = player === 0 ? 'merah' : 'biru';
     const variant = (idx % 3) + 1;
     const key = `batu_${color}_${variant}`;
     let sp;
     if (this.textures.exists(key)) {
-      sp = this.add.image(x, row.y, key).setDisplaySize(50, 50).setDepth(52).setAlpha(0.7);
+      sp = this.add.image(x, row.y, key).setDisplaySize(46, 46).setDepth(52).setAlpha(0.75);
     } else {
-      sp = this.add.circle(x, row.y, 22, player === 0 ? COLOR_P1 : COLOR_P2).setDepth(52).setAlpha(0.7);
+      sp = this.add.circle(x, row.y, 20, player === 0 ? COLOR_P1 : COLOR_P2).setDepth(52).setAlpha(0.75);
     }
     row.sprites.push(sp);
   }
@@ -368,7 +372,17 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (this.validMoves.length === 0) {
-      this._showMsg('Unit ini tidak bisa bergerak!');
+      // Shake kanan-kiri kalau gabisa gerak
+      const ox = piece.sprite.x;
+      this.tweens.add({
+        targets: piece.sprite,
+        x: { from: ox - 12, to: ox + 12 },
+        duration: 60,
+        yoyo: true,
+        repeat: 3,
+        ease: 'Sine.easeInOut',
+        onComplete: () => { piece.sprite.x = ox; },
+      });
       return;
     }
 
@@ -376,6 +390,8 @@ export class GameScene extends Phaser.Scene {
     this._highlightNode(piece.node, COLOR_SELECT);
     this.validMoves.forEach(m => {
       this._highlightNode(m.to, m.isCapture ? COLOR_CAPTURE : COLOR_MOVE);
+      // X merah di atas batu musuh yang akan dimakan
+      if (m.isCapture && m.captured) this._markCaptureTarget(m.captured);
     });
 
     this._showMsg(this.mustCapture
@@ -404,16 +420,7 @@ export class GameScene extends Phaser.Scene {
       this._highlights.push(glow);
 
     } else if (color === COLOR_CAPTURE) {
-      // X merah di atas pion musuh yang bisa dimakan
-      const g = this.add.graphics().setDepth(20);
-      g.lineStyle(8, 0xff2222, 1);
-      const r = 28;
-      g.beginPath(); g.moveTo(x - r, y - r); g.lineTo(x + r, y + r); g.strokePath();
-      g.beginPath(); g.moveTo(x + r, y - r); g.lineTo(x - r, y + r); g.strokePath();
-      this._highlights.push(g);
-
-    } else {
-      // Dashed circle outline untuk posisi gerak kosong
+      // Dashed circle putih muter di posisi tujuan (bukan X — X ada di piece musuh)
       const g = this.add.graphics().setDepth(14);
       g.lineStyle(5, 0xffffff, 0.85);
       const segs = 12, r = 36;
@@ -426,8 +433,39 @@ export class GameScene extends Phaser.Scene {
           g.strokePath();
         }
       }
+      // Animasi rotasi
+      this.tweens.add({ targets: g, angle: 360, duration: 1200, repeat: -1, ease: 'Linear' });
+      this._highlights.push(g);
+
+    } else {
+      // Dashed circle putih berputar untuk posisi gerak kosong
+      const g = this.add.graphics().setDepth(14);
+      g.lineStyle(5, 0x2ecc71, 0.9);
+      const segs = 12, r = 36;
+      for (let i = 0; i < segs; i++) {
+        if (i % 2 === 0) {
+          const a1 = (i / segs) * Math.PI * 2;
+          const a2 = ((i + 0.7) / segs) * Math.PI * 2;
+          g.beginPath();
+          g.arc(x, y, r, a1, a2, false);
+          g.strokePath();
+        }
+      }
+      this.tweens.add({ targets: g, angle: 360, duration: 1500, repeat: -1, ease: 'Linear' });
       this._highlights.push(g);
     }
+  }
+
+  // X merah di atas batu musuh yang akan dimakan
+  _markCaptureTarget(piece) {
+    this._highlights ??= [];
+    const { x, y } = this._nodeXY(piece.node);
+    const g = this.add.graphics().setDepth(21);
+    g.lineStyle(8, 0xff2222, 1);
+    const r = 28;
+    g.beginPath(); g.moveTo(x - r, y - r); g.lineTo(x + r, y + r); g.strokePath();
+    g.beginPath(); g.moveTo(x + r, y - r); g.lineTo(x - r, y + r); g.strokePath();
+    this._highlights.push(g);
   }
 
   // ── Move calculation ──────────────────────────────────────────
