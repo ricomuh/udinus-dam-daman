@@ -144,14 +144,16 @@ export class GameScene extends Phaser.Scene {
 
   _drawBoard() {
     // Guide_1 dan papan: landscape 1401x701, rotate 90 CW → portrait 701x1401
-    // Node grid total height: dari top ext (ny=-2) ke bot ext (ny=6) = 8 * CELL_H = 8*130 = 1040px
-    // Node grid total width: dari col 0 ke col 4 = 4 * CELL_W = 4*110 = 440px
-    // Scale board supaya cocok node grid:
-    // portrait asset: w=701, h=1401. Kita mau h-nya = 1040px → scale = 1040/1401 = 0.742
-    const nodeGridH = 8 * CELL_H * 2.5;  // scale up board bg only
-    const scale = nodeGridH / 1401;
+    // Node grid height (top ext ny=-2 ke bot ext ny=6) = 8 * CELL_H = 8*120 = 960px
+    // Board image di-scale SEPADAN node grid (bukan distretch), dan TIDAK boleh
+    // lebih besar dari screen. Fit height = node grid height, caps di 90% screen.
+    const gridH      = 8 * CELL_H;                        // 960
+    const boardPH    = 1401;                              // tinggi portrait setelah rotate
+    const maxScale   = (this.scale.height * 0.9) / boardPH;
+    const scale      = Math.min(gridH / boardPH, maxScale);
     const cx = BOARD_X;
     const cy = BOARD_Y;
+    const scaleGrid = 0.98; // lihat catatan: board ~ node grid
 
     if (this.textures.exists('papan')) {
       this.add.image(cx, cy, 'papan')
