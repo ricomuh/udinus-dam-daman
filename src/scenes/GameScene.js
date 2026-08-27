@@ -147,7 +147,7 @@ export class GameScene extends Phaser.Scene {
     // Node grid height (top ext ny=-2 ke bot ext ny=6) = 8 * CELL_H = 8*120 = 960px
     // Board image di-scale SEPADAN node grid (bukan distretch), dan TIDAK boleh
     // lebih besar dari screen. Fit height = node grid height, caps di 90% screen.
-    const gridH      = 8 * CELL_H;                        // 960
+    const gridH      = 8 * CELL_H * 1.2;                  // 960 * 1.2 = 1152
     const boardPH    = 1401;                              // tinggi portrait setelah rotate
     const maxScale   = (this.scale.height * 0.9) / boardPH;
     const scale      = Math.min(gridH / boardPH, maxScale);
