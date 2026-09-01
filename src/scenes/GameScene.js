@@ -40,8 +40,8 @@ const N = NODE_POS.length; // 37
 const EXTRA_EDGES = [
   // top segitiga internal
   [3, 4], [4, 5],
-  // top segitiga → row 0 (3→8, 4→7/8/9, 5→8)
-  [3, 8], [4, 7], [4, 8], [4, 9], [5, 8],
+  // top segitiga → row 0 (3→8, 4→8, 5→8)
+  [3, 8], [4, 8], [5, 8],
   // top extension internal
   [0, 1], [1, 2],
   // top extension → top segitiga
@@ -49,7 +49,7 @@ const EXTRA_EDGES = [
   // bottom segitiga internal
   [31, 32], [32, 33],
   // bottom segitiga → row 4 (31→28, 32→27/28/29, 33→28)
-  [31, 28], [32, 27], [32, 28], [32, 29], [33, 28],
+  [31, 28], [32, 28], [33, 28],
   // bottom extension internal
   [34, 35], [35, 36],
   // bottom extension → bottom segitiga
@@ -61,11 +61,28 @@ function buildAdjacency() {
   const addEdge = (a, b) => { adj[a].push(b); adj[b].push(a); };
 
   // Grid 5x5: nodes 6..30 (col = (id-6)%5, row = floor((id-6)/5))
+  // Horizontal + vertical edges
   for (let id = 6; id <= 30; id++) {
     const c = (id - 6) % 5;
     const r = Math.floor((id - 6) / 5);
-    const dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
-    for (const [dc, dr] of dirs) {
+    for (const [dc, dr] of [[1, 0], [0, 1]]) {
+      const nc = c + dc, nr = r + dr;
+      if (nc >= 0 && nc <= 4 && nr >= 0 && nr <= 4) {
+        addEdge(id, 6 + nr * 5 + nc);
+      }
+    }
+  }
+
+  // Diagonal edges: explicit paths (user confirmed)
+  // Node yang boleh diagonal: 12, 14, 18, 22, 24
+  // 12(col1,row1): NW→SE ke 6,18 | NE→SW ke 8,16
+  // 14(col3,row1): NW→SE ke 8,20 | NE→SW ke 10,18  -- wait, recalc below
+  // Build dari adjacency node diagonal ke segiempat
+  const DIAG_NODES = new Set([12, 14, 18, 22, 24]);
+  for (const id of DIAG_NODES) {
+    const c = (id - 6) % 5;
+    const r = Math.floor((id - 6) / 5);
+    for (const [dc, dr] of [[1,1],[1,-1],[-1,1],[-1,-1]]) {
       const nc = c + dc, nr = r + dr;
       if (nc < 0 || nc > 4 || nr < 0 || nr > 4) continue;
       addEdge(id, 6 + nr * 5 + nc);
@@ -110,6 +127,9 @@ export class GameScene extends Phaser.Scene {
     this.busy          = false;
     this.gameOver      = false;
     this._pieceId      = 0;
+    this._turnLights   = [];
+    this._turnBanner   = null;
+    this._turnBannerBg = null;
   }
 
   create() {
@@ -128,6 +148,7 @@ export class GameScene extends Phaser.Scene {
     this._createHUD();
 
     this.input.on('pointerdown', this._onPointerDown, this);
+    window.__gameScene = this; // E2E test access
   }
 
   // ── Board drawing ─────────────────────────────────────────────
@@ -165,6 +186,16 @@ export class GameScene extends Phaser.Scene {
         .setScale(scale)
         .setDepth(2)
         .setAlpha(0.95);
+    }
+
+    // DEBUG: node labels
+    for (let i = 0; i < N; i++) {
+      const { x, y } = this._nodeXY(i);
+      this.add.circle(x, y, 18, 0x000000, 0.55).setDepth(50);
+      this.add.text(x, y, String(i), {
+        fontSize: '18px', fontFamily: 'Arial Black',
+        color: '#ffffff', stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(51);
     }
   }
 
@@ -268,12 +299,33 @@ export class GameScene extends Phaser.Scene {
     this._deadRowP1 = { y: topNodeY - deadGap, sprites: [], startX: deadStartX };
     this._deadRowP2 = { y: botNodeY + deadGap, sprites: [], startX: deadStartX };
 
+    // Turn banner — centered top (GILIRAN MERAH/BIRU)
+    const bw = 420, bh = 64, bx = W / 2, by = 132;
+    this._turnBannerBg = this.add.graphics().setDepth(55);
+    this._turnBannerBg.fillStyle(0x000000, 0.52);
+    this._turnBannerBg.fillRoundedRect(bx - bw/2, by - bh/2, bw, bh, 18);
+    this._turnBannerBg.lineStyle(3, 0xffffff, 0.92);
+    this._turnBannerBg.strokeRoundedRect(bx - bw/2, by - bh/2, bw, bh, 18);
+    this._turnBanner = this.add.text(bx, by, '', {
+      fontFamily: 'LilitaOne', fontSize: '34px', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 5,
+    }).setOrigin(0.5).setDepth(56);
+
     this._updateHUD();
+    this._showTurnLights();
   }
 
   _updateHUD() {
     const p1 = this.pieces.filter(p => p.alive && p.player === 0).length;
     const p2 = this.pieces.filter(p => p.alive && p.player === 1).length;
+    
+    // Update turn banner
+    const names = ['MERAH', 'BIRU'];
+    const colors = [COLOR_P1, COLOR_P2];
+    if (this._turnBanner) {
+      this._turnBanner.setText(`GILIRAN ${names[this.currentTurn]}`);
+      this._turnBanner.setColor(Phaser.Display.Color.IntegerToColor(colors[this.currentTurn]).rgba);
+    }
     this.p1CountText?.setText(`×${p1}`);
     this.p2CountText?.setText(`×${p2}`);
   }
@@ -363,6 +415,14 @@ export class GameScene extends Phaser.Scene {
     if (this.mustCapture) {
       if (captureMoves.length === 0) {
         this._showMsg('Unit ini tidak bisa menyerang. Pilih unit lain!');
+        const ox = piece.sprite.x;
+        this.tweens.add({
+          targets: piece.sprite,
+          x: { from: ox - 12, to: ox + 12 },
+          duration: 60, yoyo: true, repeat: 3,
+          ease: 'Sine.easeInOut',
+          onComplete: () => { piece.sprite.x = ox; },
+        });
         return;
       }
       this.validMoves = captureMoves;
@@ -503,6 +563,7 @@ export class GameScene extends Phaser.Scene {
   async _executeMove(piece, move) {
     this.busy = true;
     this._clearSelection();
+    this._clearTurnLights();
 
     const { x, y } = this._nodeXY(move.to);
 
@@ -557,6 +618,7 @@ export class GameScene extends Phaser.Scene {
 
   _endTurn() {
     this.currentTurn = 1 - this.currentTurn;
+    this._clearTurnLights();
     this._updateHUD();
 
     const playerPieces = this.pieces.filter(p => p.alive && p.player === this.currentTurn);
@@ -569,6 +631,8 @@ export class GameScene extends Phaser.Scene {
       this.mustCapture = false;
       this._showMsg('Pilih unit untuk digerakkan');
     }
+
+    this._showTurnLights();
   }
 
   _checkWin() {
@@ -600,6 +664,37 @@ export class GameScene extends Phaser.Scene {
     this.add.text(W/2, H/2 + 170, 'Main Lagi', {
       fontFamily: 'Arial Black', fontSize: '48px', color: '#fff',
     }).setOrigin(0.5).setDepth(203);
+  }
+
+  _showTurnLights() {
+    const playerPieces = this.pieces.filter(p => p.alive && p.player === this.currentTurn);
+    const movable = this.mustCapture
+      ? playerPieces.filter(p => this._getValidMoves(p).some(m => m.isCapture))
+      : playerPieces.filter(p => this._getValidMoves(p).length > 0);
+
+    movable.forEach(piece => {
+      const { x, y } = this._nodeXY(piece.node);
+      const color = piece.player === 0 ? COLOR_P1 : COLOR_P2;
+
+      const ring = this.add.circle(x, y, 36, color, 0.5)
+        .setDepth(9)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({
+        targets: ring,
+        alpha: { from: 0.5, to: 0.05 },
+        scale: { from: 1, to: 1.4 },
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      this._turnLights.push(ring);
+    });
+  }
+
+  _clearTurnLights() {
+    this._turnLights.forEach(obj => obj.destroy());
+    this._turnLights = [];
   }
 
   _wait(ms) { return new Promise(r => this.time.delayedCall(ms, r)); }

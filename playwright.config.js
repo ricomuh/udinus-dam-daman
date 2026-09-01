@@ -9,7 +9,7 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   use: {
-    baseURL: 'https://demo.leolitgames.com/udinus-ular-tangga/v1.5.0',
+    baseURL: 'https://demo.leolitgames.com/udinus-dam-daman/1.0.0',
     viewport: { width: 390, height: 844 },
     deviceScaleFactor: 1,
     screenshot: 'only-on-failure',
@@ -24,14 +24,12 @@ export default defineConfig({
         viewport: { width: 390, height: 844 },
         launchOptions: {
           args: [
-            '--disable-gpu',
             '--no-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-software-rasterizer',
+            '--disable-webgl',
           ],
         },
       },
     },
   ],
-  // webServer disabled — test ke deployed URL langsung
 });
