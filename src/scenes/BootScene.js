@@ -1,66 +1,108 @@
 import Phaser from 'phaser';
+import { initScale } from '../utils/ScaleHelper.js';
 
 export class BootScene extends Phaser.Scene {
   constructor() { super('BootScene'); }
 
   preload() {
-    const W = this.scale.width;
-    const H = this.scale.height;
+    initScale(this);
+    const { width, height } = this.scale;
 
-    // Loading bar
-    const bar = this.add.graphics();
-    const bg  = this.add.graphics();
-    bg.fillStyle(0x333333).fillRect(W/2 - 300, H/2 - 20, 600, 40);
-    this.load.on('progress', v => {
-      bar.clear().fillStyle(0xe74c3c).fillRect(W/2 - 300, H/2 - 20, 600 * v, 40);
+    // Loading screen
+    const bgGfx = this.add.graphics();
+    bgGfx.fillStyle(0x1a1a2e, 1);
+    bgGfx.fillRect(0, 0, width, height);
+
+    const title = this.add.text(width / 2, height * 0.35, 'Udinus Dam-Daman', {
+      fontFamily: 'Lilita One, Arial, sans-serif',
+      fontSize: '72px', fontStyle: 'bold', color: '#ffffff',
+    }).setOrigin(0.5);
+
+    const statusText = this.add.text(width / 2, height * 0.45, 'Memuat...', {
+      fontFamily: 'Fredoka, Arial, sans-serif',
+      fontSize: '42px', color: '#aaaaaa',
+    }).setOrigin(0.5);
+
+    const barWidth = 700, barHeight = 50;
+    const barX = (width - barWidth) / 2, barY = height * 0.5;
+
+    const barBg = this.add.graphics();
+    barBg.fillStyle(0x333355, 1);
+    barBg.fillRoundedRect(barX, barY, barWidth, barHeight, 14);
+
+    const barFill = this.add.graphics();
+
+    const percentText = this.add.text(width / 2, barY + barHeight / 2, '0%', {
+      fontFamily: 'Fredoka, Arial, sans-serif',
+      fontSize: '36px', fontStyle: 'bold', color: '#ffffff',
+    }).setOrigin(0.5);
+
+    this.load.on('progress', (value) => {
+      barFill.clear();
+      barFill.fillStyle(0x4ade80, 1);
+      barFill.fillRoundedRect(barX + 3, barY + 3, (barWidth - 6) * value, barHeight - 6, 11);
+      percentText.setText(`${Math.round(value * 100)}%`);
     });
 
-    // Background — path relatif, nama sesuai file di server
-    this.load.image('bg_main',    'assets/images/bg/BG_main.png');
-    this.load.image('background', 'assets/images/bg/BACKGROUND.png');
+    this.load.once('complete', () => {
+      [bgGfx, title, statusText, barBg, barFill, percentText].forEach(o => o.destroy());
+    });
 
-    // Board
+    // ── Font ──
+    this.load.css('font_lilita', 'https://fonts.googleapis.com/css2?family=Lilita+One&family=Fredoka:wght@400;600&display=swap');
+
+    // ── Backgrounds ──
+    this.load.image('bg_menu_dd',      'assets/images/bg/main_menu_bg_portrait.png');
+    this.load.image('bg_gameplay',     'assets/images/bg/ingame_bg_portrait.png');
+    this.load.image('papan_main_menu', 'assets/images/bg/papan_main_menu.png');
+    this.load.image('screen_glow',     'assets/images/bg/screen_glow.png');
+
+    // ── Board ──
     this.load.image('papan', 'assets/images/board/papan.png');
     this.load.image('guide', 'assets/images/board/Guide_1.png');
 
-    // Pieces — merah
+    // ── Pieces ──
     this.load.image('batu_merah_1', 'assets/images/pieces/batu_merah_1.png');
     this.load.image('batu_merah_2', 'assets/images/pieces/batu_merah_2.png');
     this.load.image('batu_merah_3', 'assets/images/pieces/batu_merah_3.png');
+    this.load.image('batu_biru_1',  'assets/images/pieces/batu_biru_1.png');
+    this.load.image('batu_biru_2',  'assets/images/pieces/batu_biru_2.png');
+    this.load.image('batu_biru_3',  'assets/images/pieces/batu_biru_3.png');
 
-    // Pieces — biru
-    this.load.image('batu_biru_1', 'assets/images/pieces/batu_biru_1.png');
-    this.load.image('batu_biru_2', 'assets/images/pieces/batu_biru_2.png');
-    this.load.image('batu_biru_3', 'assets/images/pieces/batu_biru_3.png');
+    // ── UI ──
+    this.load.image('btn_blue',          'assets/images/buttons/btn_blue.png');
+    this.load.image('btn_circle',        'assets/images/buttons/btn_circle.png');
+    this.load.image('label_left02',      'assets/images/labels/label_left02.png');
+    this.load.image('logo_udinus',       'assets/images/logo/logo_udinus.png');
+    this.load.image('logo_diktisaintek', 'assets/images/logo/logo_diktisaintek.png');
+    this.load.image('icon_account',      'assets/images/ui/icon_account.png');
+    this.load.image('icon_edit',         'assets/images/ui/icon_edit.png');
+    this.load.image('icon_battle',       'assets/images/ui/icon_battle.png');
+    this.load.image('icon_damage',       'assets/images/ui/icon_damage.png');
+    this.load.image('icon_friends',      'assets/images/ui/icon_friends.png');
+    this.load.image('music_on',          'assets/images/ui/music_on.png');
+    this.load.image('music_off',         'assets/images/ui/music_off.png');
 
-    // Icons / UI
-    this.load.image('icon1_ellipse',   'assets/images/icons/Icon1_ellipse.png');
-    this.load.image('icon2_ellipse',   'assets/images/icons/Icon2_ellipse.png');
-    this.load.image('icon1_rectangle', 'assets/images/icons/Icon1_rectangle.png');
-    this.load.image('icon2_rectangle', 'assets/images/icons/Icon2_rectangle.png');
-    this.load.image('hud_char_frame',  'assets/images/ui/hud_char_frame.png');
-    this.load.image('icon_account',    'assets/images/ui/icon_account.png');
-    this.load.image('bg_gameplay',     'assets/images/bg/BACKGROUND.png');
+    // ── Audio ──
+    this.load.audio('bgm_menu',  'assets/audio/bgm/menu.ogg');
+    this.load.audio('sfx_click', 'assets/audio/sfx/click.ogg');
   }
 
   create() {
-    // Inject @font-face for LilitaOne so Phaser text objects can use it
+    // Inject font
     const style = document.createElement('style');
     style.textContent = `
+      @import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=Fredoka:wght@400;600&display=swap');
       @font-face {
         font-family: 'LilitaOne';
         src: url('assets/fonts/LilitaOne-Regular.ttf') format('truetype');
-        font-weight: normal;
-        font-style: normal;
       }
     `;
     document.head.appendChild(style);
 
-    // Pre-load the font so it's ready before GameScene renders text
     document.fonts.load('40px LilitaOne').then(() => {
       this.scene.start('MainMenuScene');
     }).catch(() => {
-      // Font failed to load — proceed anyway
       this.scene.start('MainMenuScene');
     });
   }

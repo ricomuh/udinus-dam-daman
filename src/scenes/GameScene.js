@@ -138,7 +138,8 @@ export class GameScene extends Phaser.Scene {
 
     // Background gameplay (BACKGROUND.png rotated portrait)
     if (this.textures.exists('bg_gameplay')) {
-      this.add.image(W/2, H/2, 'bg_gameplay').setDisplaySize(W, H).setDepth(0);
+      const bgImg = this.add.image(W/2, H/2, 'bg_gameplay');
+      bgImg.setScale(Math.max(W / bgImg.width, H / bgImg.height)).setDepth(0);
     } else {
       this.add.rectangle(W/2, H/2, W, H, 0x1a1a2e).setDepth(0);
     }
@@ -188,15 +189,7 @@ export class GameScene extends Phaser.Scene {
         .setAlpha(0.95);
     }
 
-    // DEBUG: node labels
-    for (let i = 0; i < N; i++) {
-      const { x, y } = this._nodeXY(i);
-      this.add.circle(x, y, 18, 0x000000, 0.55).setDepth(50);
-      this.add.text(x, y, String(i), {
-        fontSize: '18px', fontFamily: 'Arial Black',
-        color: '#ffffff', stroke: '#000000', strokeThickness: 3,
-      }).setOrigin(0.5).setDepth(51);
-    }
+
   }
 
   // ── Pieces ────────────────────────────────────────────────────
@@ -470,8 +463,8 @@ export class GameScene extends Phaser.Scene {
     this._highlights ??= [];
 
     if (color === COLOR_SELECT) {
-      // Glow pada piece yang dipilih
-      const glow = this.add.graphics().setDepth(14);
+      // Glow pada piece yang dipilih — depth 8 biar di bawah piece (depth 10)
+      const glow = this.add.graphics().setDepth(8);
       glow.fillStyle(0xffff00, 0.25);
       glow.fillCircle(x, y, 54);
       glow.lineStyle(6, 0xffff00, 0.9);
@@ -480,7 +473,7 @@ export class GameScene extends Phaser.Scene {
 
     } else if (color === COLOR_CAPTURE) {
       // Dashed circle putih muter di posisi tujuan capture
-      const container = this.add.container(x, y).setDepth(14);
+      const container = this.add.container(x, y).setDepth(8);
       const g = this.add.graphics();
       g.lineStyle(5, 0xffffff, 0.85);
       const segs = 12, r = 36;
