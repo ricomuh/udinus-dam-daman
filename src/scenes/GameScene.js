@@ -126,6 +126,8 @@ export class GameScene extends Phaser.Scene {
     this.pieces        = [];
     this.busy          = false;
     this.gameOver      = false;
+    this.paused        = false;
+    this.pauseOverlay  = null;
     this._pieceId      = 0;
     this._turnLights   = [];
     this._turnBanner   = null;
@@ -330,6 +332,16 @@ export class GameScene extends Phaser.Scene {
     const H = this.scale.height;
     const PIECE_SIZE = 52; // ukuran kecil untuk dead piece display
 
+    // ── Pause button (top-right) ──────────────────────────────────
+    const pauseX = W - 60;
+    const pauseY = 60;
+    const pauseBtn = this.add.image(pauseX, pauseY, 'btn_circle2')
+      .setDisplaySize(90, 90).setDepth(100).setInteractive({ useHandCursor: true });
+    const pauseIcon = this.add.image(pauseX, pauseY, 'icon_pause')
+      .setDisplaySize(44, 44).setDepth(101);
+    this._attachHoverScale(pauseBtn, [pauseBtn, pauseIcon], { hoverMul: 1.08 });
+    pauseBtn.on('pointerup', () => this.openPauseMenu());
+
     // ── Top HUD: musuh (P2 biru) ──────────────────────────────
     // pojok kiri atas: icon batu biru + count
     const p2PieceIcon = this.textures.exists('batu_biru_1')
@@ -442,6 +454,59 @@ export class GameScene extends Phaser.Scene {
   }
 
   _showMsg(_msg) { /* text status dihapus per brief */ }
+
+  // ── Banner helper (mirip ular-tangga) ─────────────────────────
+  _makeBanner(cx, cy, w, h, text, opts = {}) {
+    const {
+      fill       = 0xFFD93D,
+      stroke     = 0xC67F00,
+      strokeW    = 3,
+      radius     = Math.min(h / 2, 36),
+      fontSize   = '32px',
+      textColor  = '#7a3c00',
+      textStroke = '#ffffff',
+      textStrokeW = 2,
+      depth      = 0,
+    } = opts;
+
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.18);
+    g.fillRoundedRect(-w / 2 + 1, -h / 2 + 3, w, h, radius);
+    g.fillStyle(fill, 1);
+    g.fillRoundedRect(-w / 2, -h / 2, w, h, radius);
+    g.lineStyle(strokeW, stroke, 1);
+    g.strokeRoundedRect(-w / 2, -h / 2, w, h, radius);
+    g.fillStyle(0xffffff, 0.22);
+    g.fillEllipse(0, -h / 2 + 4, w * 0.55, 5);
+
+    const txt = this.add.text(0, 0, text, {
+      fontFamily: 'Fredoka, Arial, sans-serif',
+      fontSize, fontStyle: 'bold',
+      color: textColor, stroke: textStroke, strokeThickness: textStrokeW,
+      align: 'center',
+    }).setOrigin(0.5);
+
+    const container = this.add.container(cx, cy, [g, txt]);
+    container.setScrollFactor(0).setDepth(depth);
+    container.bannerText = txt;
+    return container;
+  }
+
+  // ── Hover scale helper ─────────────────────────────────────────
+  _attachHoverScale(btn, targets, opts = {}) {
+    const { hoverMul = 1.07 } = opts;
+    const baseScales = targets.map(t => ({ x: t.scaleX, y: t.scaleY }));
+    btn.on('pointerover', () => {
+      targets.forEach((t, i) => {
+        t.setScale(baseScales[i].x * hoverMul, baseScales[i].y * hoverMul);
+      });
+    });
+    btn.on('pointerout', () => {
+      targets.forEach((t, i) => {
+        t.setScale(baseScales[i].x, baseScales[i].y);
+      });
+    });
+  }
 
   // ── Input ─────────────────────────────────────────────────────
   _onPointerDown(pointer) {
@@ -740,24 +805,172 @@ export class GameScene extends Phaser.Scene {
   _showWinner(player) {
     this.gameOver = true;
     const W = this.scale.width, H = this.scale.height;
-    const names = ['MERAH', 'BIRU'];
-    const colors = [COLOR_P1, COLOR_P2];
 
-    this.add.rectangle(W/2, H/2, W, H, 0x000000, 0.7).setDepth(200);
-    this.add.rectangle(W/2, H/2, 800, 500, colors[player], 1).setDepth(201);
-    this.add.text(W/2, H/2 - 80, '🏆 MENANG!', {
-      fontFamily: 'Arial Black', fontSize: '90px', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(202);
-    this.add.text(W/2, H/2 + 30, `Pemain ${names[player]}`, {
-      fontFamily: 'Arial Black', fontSize: '56px', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(202);
+    // Nama pemain
+    let playerName;
+    if (player === 0) {
+      playerName = this.registry.get('playerName') ?? 'MERAH';
+    } else {
+      playerName = (this.gameMode === 'vsbot') ? 'Bot' : 'BIRU';
+    }
 
-    this.add.rectangle(W/2, H/2 + 170, 500, 100, 0x27ae60, 1)
-      .setDepth(202).setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.scene.restart());
-    this.add.text(W/2, H/2 + 170, 'Main Lagi', {
-      fontFamily: 'Arial Black', fontSize: '48px', color: '#fff',
-    }).setOrigin(0.5).setDepth(203);
+    const overlay = this.add.container(0, 0).setDepth(2000).setScrollFactor(0);
+
+    // Dim
+    const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.7)
+      .setInteractive().setScrollFactor(0);
+    overlay.add(dim);
+
+    // Glow (jika tersedia)
+    if (this.textures.exists('popup_glow')) {
+      const glow = this.add.image(W / 2, H / 2, 'popup_glow')
+        .setAlpha(0.85).setBlendMode(Phaser.BlendModes.ADD).setScrollFactor(0);
+      glow.setDisplaySize(W + 160, 640);
+      overlay.add(glow);
+    }
+
+    // Popup 9slice
+    const popupY = H / 2;
+    const popup = this.add.nineslice(W / 2, popupY, 'popup_purple', null,
+      W - 80, 1000,
+      16, 16, 22, 22
+    ).setScrollFactor(0);
+    overlay.add(popup);
+
+    // Celebrate teks
+    const celebrate = this.add.text(W / 2, popupY - 380, '🎉🎊🎉', { fontSize: '80px' })
+      .setOrigin(0.5).setScrollFactor(0);
+    overlay.add(celebrate);
+
+    // Trophy icon
+    if (this.textures.exists('icon_trophy')) {
+      const trophy = this.add.image(W / 2, popupY - 240, 'icon_trophy')
+        .setDisplaySize(192, 160).setScrollFactor(0);
+      overlay.add(trophy);
+    }
+
+    // Teks pemenang
+    const colorHex = player === 0 ? '#e74c3c' : '#3498db';
+    const txt = this.add.text(W / 2, popupY - 60,
+      `Selamat\n${playerName}!`, {
+        fontFamily: 'Fredoka, Arial, sans-serif', fontSize: '64px', fontStyle: 'bold',
+        color: colorHex, stroke: '#ffffff', strokeThickness: 4,
+        align: 'center',
+      }).setOrigin(0.5).setScrollFactor(0);
+    overlay.add(txt);
+
+    // ── Button helper ──
+    const btnW = W - 160;
+    const btnH = 120;
+    const makeBtn = (y, bgKey, iconKey, label, textColor, strokeColor, onClick) => {
+      const btn = this.add.nineslice(W / 2, y, bgKey, null,
+        btnW, btnH,
+        20, 20, 14, 38
+      ).setInteractive({ useHandCursor: true }).setScrollFactor(0);
+      const icon = this.add.image(W / 2 - btnW / 2 + 64, y - 14, iconKey)
+        .setDisplaySize(52, 52).setScrollFactor(0);
+      const lbl = this.add.text(W / 2 + 24, y - 14, label, {
+        fontFamily: 'Fredoka, Arial, sans-serif', fontSize: '48px', fontStyle: 'bold',
+        color: textColor, stroke: strokeColor, strokeThickness: 2,
+      }).setOrigin(0.5).setScrollFactor(0);
+      btn.on('pointerup', onClick);
+      this._attachHoverScale(btn, [btn, icon, lbl]);
+      overlay.add([btn, icon, lbl]);
+    };
+
+    // Main Lagi
+    makeBtn(popupY + 200, 'btn_green', 'icon_play', 'Main Lagi',
+      '#ffffff', '#1a4a1a',
+      () => this.scene.restart());
+
+    // Menu Utama
+    makeBtn(popupY + 360, 'btn_red', 'icon_home', 'Menu Utama',
+      '#ffffff', '#4a0a0a',
+      () => this.scene.start('MainMenuScene'));
+  }
+
+  // ========== PAUSE MENU ==========
+  openPauseMenu() {
+    if (this.pauseOverlay) return;
+    this.paused = true;
+    this.busy   = true;
+    const W = this.scale.width, H = this.scale.height;
+    const overlay = this.add.container(0, 0).setDepth(1500).setScrollFactor(0);
+    this.pauseOverlay = overlay;
+
+    // Dim
+    const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.6)
+      .setInteractive().setScrollFactor(0);
+    dim.on('pointerup', () => this.closePauseMenu());
+    overlay.add(dim);
+
+    // Popup 9slice navy
+    const popupY = H / 2;
+    const popupW = W - 160;
+    const popupH = 680;
+    const popup = this.add.nineslice(W / 2, popupY, 'popup_navy', null,
+      popupW, popupH,
+      18, 18, 24, 24
+    ).setScrollFactor(0);
+    overlay.add(popup);
+
+    // Title banner JEDA
+    const titleBanner = this._makeBanner(W / 2, popupY - popupH / 2 + 12,
+      popupW - 120, 80, 'JEDA', { fontSize: '44px', radius: 32 });
+    overlay.add(titleBanner);
+
+    // ── Row buttons ──
+    const rowBtnW = popupW - 160;
+    const rowBtnH = 110;
+    const makeRow = (y, bgKey, iconKey, label, textColor, strokeColor, onClick) => {
+      const btn = this.add.nineslice(W / 2, y, bgKey, null,
+        rowBtnW, rowBtnH,
+        18, 18, 12, 28
+      ).setInteractive({ useHandCursor: true }).setScrollFactor(0);
+      const icon = this.add.image(W / 2 - rowBtnW / 2 + 56, y - 12, iconKey)
+        .setDisplaySize(52, 52).setScrollFactor(0);
+      const lbl = this.add.text(W / 2 + 24, y - 12, label, {
+        fontFamily: 'Fredoka, Arial, sans-serif', fontSize: '44px', fontStyle: 'bold',
+        color: textColor, stroke: strokeColor, strokeThickness: 2,
+      }).setOrigin(0.5).setScrollFactor(0);
+      btn.on('pointerup', () => onClick());
+      this._attachHoverScale(btn, [btn, icon, lbl]);
+      overlay.add([btn, icon, lbl]);
+      return { btn, icon, lbl };
+    };
+
+    // Lanjutkan
+    makeRow(popupY - 120, 'btn_green', 'icon_resume', 'Lanjutkan',
+      '#ffffff', '#1a4a1a',
+      () => this.closePauseMenu());
+
+    // Musik toggle
+    const musicOn = this.registry.get('musicOn') ?? true;
+    const { lbl: musicLbl, btn: musicBtn, icon: musicIcon } = makeRow(
+      popupY + 10,
+      'btn_blue',
+      musicOn ? 'music_on' : 'music_off',
+      musicOn ? 'Musik: ON' : 'Musik: OFF',
+      '#ffffff', '#0a2a5a',
+      () => {
+        const nowOn = !(this.registry.get('musicOn') ?? true);
+        this.registry.set('musicOn', nowOn);
+        musicLbl.setText(nowOn ? 'Musik: ON' : 'Musik: OFF');
+        musicIcon.setTexture(nowOn ? 'music_on' : 'music_off');
+      });
+
+    // Menu Utama
+    makeRow(popupY + 140, 'btn_red', 'icon_home', 'Menu Utama',
+      '#ffffff', '#4a0a0a',
+      () => this.scene.start('MainMenuScene'));
+  }
+
+  closePauseMenu() {
+    if (!this.pauseOverlay) return;
+    this.pauseOverlay.destroy();
+    this.pauseOverlay = null;
+    this.paused = false;
+    this.busy   = false;
   }
 
   _showTurnLights() {

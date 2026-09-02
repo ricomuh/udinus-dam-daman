@@ -82,6 +82,17 @@ export class BootScene extends Phaser.Scene {
     this.load.image('icon_friends',      'assets/images/ui/icon_friends.png');
     this.load.image('music_on',          'assets/images/ui/music_on.png');
     this.load.image('music_off',         'assets/images/ui/music_off.png');
+    this.load.image('btn_circle2',       'assets/images/ui/btn_circle2.png');
+    this.load.image('btn_green',         'assets/images/ui/btn_green.png');
+    this.load.image('btn_red',           'assets/images/ui/btn_red.png');
+    this.load.image('popup_navy',        'assets/images/ui/popup_navy.png');
+    this.load.image('popup_purple',      'assets/images/ui/popup_purple.png');
+    this.load.image('popup_glow',        'assets/images/ui/popup_glow.png');
+    this.load.image('icon_pause',        'assets/images/ui/icon_pause.png');
+    this.load.image('icon_home',         'assets/images/ui/icon_home.png');
+    this.load.image('icon_play',         'assets/images/ui/icon_play.png');
+    this.load.image('icon_trophy',       'assets/images/ui/icon_trophy.png');
+    this.load.image('icon_resume',       'assets/images/ui/icon_resume.png');
 
     // ── Audio ──
     this.load.audio('bgm_menu',  'assets/audio/bgm/menu.ogg');
