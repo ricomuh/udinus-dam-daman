@@ -124,7 +124,8 @@ export class MainMenuScene extends Phaser.Scene {
   // ── Hero: papan_main_menu float + title ─────────────────────────
   _drawHeroPapan(cx, width, height) {
     // Title box
-    const titleY = Math.round(height * 0.36);
+    const LIFT = Math.round(height * 0.15);        // geser semua konten naik seragam (spacing tetap)
+    const titleY = Math.round(height * 0.36) - LIFT;
     const boxH   = 210;
     const boxW   = 740;
 
@@ -147,7 +148,7 @@ export class MainMenuScene extends Phaser.Scene {
     // Hero papan
     const papanW = Math.round(width * 0.82);
     const papanH = Math.round(643 * papanW / 871);
-    const papanY = Math.round(height * 0.58);
+    const papanY = Math.round(height * 0.58) - LIFT;
 
     const papan = this.add.image(cx, papanY, 'papan_main_menu')
       .setDisplaySize(papanW, papanH).setAlpha(0);
@@ -169,7 +170,8 @@ export class MainMenuScene extends Phaser.Scene {
     const CARD_W = Math.round(900 * 0.7); // 630
     const CARD_H = 140;
     const GAP    = 165;
-    const startY = Math.round(height * 0.78);
+    const LIFT   = Math.round(height * 0.15);
+    const startY = Math.round(height * 0.78) - LIFT;
 
     const TARGET_H = 100;
     const modes = [
@@ -183,7 +185,7 @@ export class MainMenuScene extends Phaser.Scene {
         key: 'bot', label: 'Vs Bot (AI)', sub: 'Kamu vs komputer',
         icon: 'icon_damage',
         iconW: Math.round(68 / 72 * TARGET_H), iconH: TARGET_H,
-        action: () => { this.scene.start('GameScene', { mode: 'bot' }); },
+        action: () => { this.scene.start('GameScene', { mode: 'vsbot' }); },
       },
       {
         key: 'online', label: 'Online 1v1', sub: 'Matchmaking otomatis',

@@ -188,8 +188,99 @@ export class GameScene extends Phaser.Scene {
         .setDepth(2)
         .setAlpha(0.95);
     }
+  }
 
+  _wait(ms) { return new Promise(r => this.time.delayedCall(ms, r)); }
 
+  // ── Bot AI ────────────────────────────────────────────────────
+  _scheduleBot() {
+    if (this.gameMode !== 'vsbot' || this.currentTurn !== 1 || this.gameOver) return;
+    this.busy = true;
+    this.time.delayedCall(650, () => this._runBot());
+  }
+
+  _runBot() {
+    if (this.gameOver) { this.busy = false; return; }
+
+    const botPieces = this.pieces.filter(p => p.alive && p.player === 1);
+    const allMoves = [];
+    for (const piece of botPieces) {
+      const moves = this._getValidMoves(piece);
+      const filtered = this.mustCapture ? moves.filter(m => m.isCapture) : moves;
+      for (const move of filtered) allMoves.push({ piece, move });
+    }
+
+    if (allMoves.length === 0) { this._endTurn(); this.busy = false; return; }
+
+    const best = this._chooseBotMove(allMoves);
+    if (!best) { this._endTurn(); this.busy = false; return; }
+
+    this.busy = false;
+    this._executeMove(best.piece, best.move);
+  }
+
+  _chooseBotMove(candidates) {
+    // Prioritas 1: capture dengan chain terbanyak
+    const captures = candidates.filter(c => c.move.isCapture);
+    if (captures.length > 0) {
+      const scored = captures.map(c => ({
+        ...c,
+        score: this._simulateCaptureChain(c.piece, c.move),
+      }));
+      scored.sort((a, b) => b.score - a.score);
+      return scored[0];
+    }
+
+    // Prioritas 2: maju ke bawah (P1 biru dari atas → y besar = maju)
+    const scored = candidates.map(c => {
+      const { y } = this._nodeXY(c.move.to);
+      return { ...c, score: y + Math.random() * 10 };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    return scored[0];
+  }
+
+  _simulateCaptureChain(piece, firstMove) {
+    // Snapshot board
+    const board = this.pieces.map(p => ({ id: p.id, node: p.node, player: p.player, alive: p.alive }));
+    const mover = board.find(p => p.id === piece.id);
+    if (!mover) return 0;
+
+    let kills = 0;
+    const doCapture = (move) => {
+      kills++;
+      if (move.captured) {
+        const v = board.find(p => p.id === move.captured.id);
+        if (v) v.alive = false;
+      }
+      mover.node = move.to;
+      const further = this._getValidMovesOnBoard(mover, board).filter(m => m.isCapture);
+      for (const fm of further) doCapture(fm);
+    };
+    doCapture(firstMove);
+    return kills;
+  }
+
+  _getValidMovesOnBoard(piece, board) {
+    const pieceAt = (node) => board.find(p => p.alive && p.node === node) ?? null;
+    const moves = [];
+    const from = piece.node;
+    const player = piece.player;
+    for (const nb of ADJ[from]) {
+      if (!pieceAt(nb)) moves.push({ to: nb, isCapture: false, captured: null });
+    }
+    for (const nb of ADJ[from]) {
+      const enemy = pieceAt(nb);
+      if (!enemy || enemy.player === player) continue;
+      for (const beyond of ADJ[nb]) {
+        if (beyond === from) continue;
+        if (pieceAt(beyond)) continue;
+        if (isCollinear(from, nb, beyond)) {
+          moves.push({ to: beyond, isCapture: true, captured: enemy });
+        }
+      }
+    }
+    return moves;
   }
 
   // ── Pieces ────────────────────────────────────────────────────
@@ -626,6 +717,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this._showTurnLights();
+    this._scheduleBot(); // trigger bot kalau vsbot + giliran P1
   }
 
   _checkWin() {
