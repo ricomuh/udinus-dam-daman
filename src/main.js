@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
-import { BootScene }     from './scenes/BootScene.js';
-import { MainMenuScene } from './scenes/MainMenuScene.js';
-import { GameScene }     from './scenes/GameScene.js';
+import { BootScene }          from './scenes/BootScene.js';
+import { MainMenuScene }      from './scenes/MainMenuScene.js';
+import { MatchmakingScene }   from './scenes/MatchmakingScene.js';
+import { GameScene }          from './scenes/GameScene.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -13,7 +14,7 @@ const config = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [BootScene, MainMenuScene, GameScene],
+  scene: [BootScene, MainMenuScene, MatchmakingScene, GameScene],
 };
 
 const game = new Phaser.Game(config);

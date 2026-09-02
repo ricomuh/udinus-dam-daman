@@ -1,20 +1,22 @@
 {
   "name": "udinus-dam-daman",
   "version": "1.0.0",
-  "description": "Udinus Dam-Daman — game edukasi",
+  "description": "Udinus Dam-Daman \u2014 game edukasi",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "test": "playwright test",
-    "test:headed": "playwright test --headed"
+    "test:headed": "playwright test --headed",
+    "postinstall": "sed -i '178s|const ws = require(\"ws\");|const ws = globalThis.WebSocket;|' node_modules/photon-realtime/photon-realtime-module.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "phaser": "3.90.0"
+    "phaser": "3.90.0",
+    "photon-realtime": "^4.4.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

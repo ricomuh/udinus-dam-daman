@@ -118,6 +118,8 @@ export class GameScene extends Phaser.Scene {
 
   init(data) {
     this.gameMode      = data?.mode ?? 'offline';
+    this.myPlayerIdx   = data?.myPlayerIdx ?? 0;  // 0=merah, 1=biru (online)
+    this.photon        = data?.photon ?? null;     // PhotonManager (online)
     this.currentTurn   = 0;
     this.selected      = null;
     this.validMoves    = [];
@@ -132,6 +134,7 @@ export class GameScene extends Phaser.Scene {
     this._turnLights   = [];
     this._turnBanner   = null;
     this._turnBannerBg = null;
+    this._onlineStarted = false;
   }
 
   create() {
@@ -150,8 +153,57 @@ export class GameScene extends Phaser.Scene {
     this._initPieces();
     this._createHUD();
 
+    if (this.gameMode === 'online' && this.photon) {
+      this._setupOnlineCallbacks();
+    }
+
     this.input.on('pointerdown', this._onPointerDown, this);
     window.__gameScene = this; // E2E test access
+  }
+
+  // ── Online callbacks ──────────────────────────────────────────
+  _setupOnlineCallbacks() {
+    if (!this.photon) return;
+    this.photon.onMoveReceived = (data) => {
+      if (this.busy || this.gameOver) return;
+      const piece = this.pieces.find(p => p.id === data.pieceId);
+      if (!piece) return;
+      const captured = data.capturedId ? this.pieces.find(p => p.id === data.capturedId) : null;
+      const move = { to: data.to, isCapture: !!captured, captured };
+      this._executeMove(piece, move);
+    };
+    this.photon.onPlayerLeft = () => {
+      if (this.gameOver) return;
+      this._showOpponentLeft();
+    };
+    this.photon.onGameOver = (data) => {
+      if (this.gameOver) return;
+      this._showWinner(data.winner);
+    };
+  }
+
+  _showOpponentLeft() {
+    this.gameOver = true;
+    const W = this.scale.width, H = this.scale.height;
+    const overlay = this.add.container(0, 0).setDepth(9999).setScrollFactor(0);
+    const bg = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.85).setScrollFactor(0);
+    overlay.add(bg);
+    const txt = this.add.text(W / 2, H / 2 - 100, 'Lawan keluar\ndari permainan', {
+      fontFamily: 'Fredoka', fontSize: '56px', fontStyle: 'bold',
+      color: '#ff6b6b', stroke: '#ffffff', strokeThickness: 3, align: 'center',
+    }).setOrigin(0.5).setScrollFactor(0);
+    overlay.add(txt);
+    const btnHome = this.add.nineslice(W / 2, H / 2 + 120, 'btn_blue', null, W - 160, 120, 20, 20, 14, 38)
+      .setInteractive({ useHandCursor: true }).setScrollFactor(0);
+    const btnText = this.add.text(W / 2, H / 2 + 120, 'Kembali ke Menu', {
+      fontFamily: 'Fredoka', fontSize: '44px', fontStyle: 'bold', color: '#ffffff',
+    }).setOrigin(0.5).setScrollFactor(0);
+    btnHome.on('pointerup', () => {
+      if (this.photon) this.photon.disconnect();
+      this.scene.start('MainMenuScene');
+    });
+    overlay.add(btnHome);
+    overlay.add(btnText);
   }
 
   // ── Board drawing ─────────────────────────────────────────────
@@ -356,7 +408,19 @@ export class GameScene extends Phaser.Scene {
     if (this.textures.exists('icon_account')) {
       this.add.image(W - 55, 55, 'icon_account').setDisplaySize(72, 72).setDepth(50);
     }
-    this.p2NameText = this.add.text(W - 95, 38, 'Lawan', {
+    // Online: tampil username lawan (dari photon actors)
+    let p2Name = 'Lawan';
+    if (this.gameMode === 'online' && this.photon && this.photon.client) {
+      try {
+        const room = this.photon.client.myRoom();
+        const actors = room ? Object.values(room.actors || {}) : [];
+        const opponent = actors.find(a => a.actorNr !== this.photon.client.myActor().actorNr);
+        if (opponent && opponent.name) p2Name = opponent.name;
+      } catch (_) {}
+    } else if (this.gameMode === 'vsbot') {
+      p2Name = 'Bot';
+    }
+    this.p2NameText = this.add.text(W - 95, 38, p2Name, {
       fontFamily: 'LilitaOne', fontSize: '40px', color: '#ffffff',
       stroke: '#000000', strokeThickness: 4,
     }).setOrigin(1, 0).setDepth(51);
@@ -366,7 +430,8 @@ export class GameScene extends Phaser.Scene {
     if (this.textures.exists('icon_account')) {
       this.add.image(55, H - 55, 'icon_account').setDisplaySize(72, 72).setDepth(50);
     }
-    this.p1NameText = this.add.text(95, H - 78, 'Kamu', {
+    const p1Name = this.registry.get('playerName') || 'Kamu';
+    this.p1NameText = this.add.text(95, H - 78, p1Name, {
       fontFamily: 'LilitaOne', fontSize: '40px', color: '#ffffff',
       stroke: '#000000', strokeThickness: 4,
     }).setDepth(51);
@@ -511,6 +576,8 @@ export class GameScene extends Phaser.Scene {
   // ── Input ─────────────────────────────────────────────────────
   _onPointerDown(pointer) {
     if (this.busy || this.gameOver) return;
+    // Online: block input kalau bukan giliran kita
+    if (this.gameMode === 'online' && this.currentTurn !== this.myPlayerIdx) return;
     const node = this._findNearestNode(pointer.x, pointer.y, 60);
     if (node === null) return;
     this._handleNodeClick(node);
@@ -758,6 +825,12 @@ export class GameScene extends Phaser.Scene {
 
     if (this._checkWin()) { this.busy = false; return; }
 
+    // Online: kirim move ke lawan
+    if (this.gameMode === 'online' && this.photon) {
+      const capturedId = move.captured ? move.captured.id : null;
+      this.photon.sendMove(piece.id, piece.node, move.to, capturedId);
+    }
+
     this._endTurn();
     this.busy = false;
   }
@@ -804,14 +877,30 @@ export class GameScene extends Phaser.Scene {
 
   _showWinner(player) {
     this.gameOver = true;
+
+    // Online: kirim GAME_OVER ke lawan (hanya kalau kita yang men-trigger)
+    if (this.gameMode === 'online' && this.photon && !this._gameOverSent) {
+      this._gameOverSent = true;
+      this.photon.sendGameOver(player);
+      // Disconnect setelah delay kecil (beri waktu event terkirim)
+      this.time.delayedCall(1500, () => this.photon?.disconnect());
+    }
+
     const W = this.scale.width, H = this.scale.height;
 
     // Nama pemain
     let playerName;
     if (player === 0) {
       playerName = this.registry.get('playerName') ?? 'MERAH';
+    } else if (this.gameMode === 'vsbot') {
+      playerName = 'Bot';
+    } else if (this.gameMode === 'online') {
+      // Online: P0=kita(myPlayerIdx=0)/lawan tergantung myPlayerIdx
+      playerName = player === this.myPlayerIdx
+        ? (this.registry.get('playerName') ?? 'MERAH')
+        : (this.p2NameText?.text ?? 'Lawan');
     } else {
-      playerName = (this.gameMode === 'vsbot') ? 'Bot' : 'BIRU';
+      playerName = 'BIRU';
     }
 
     const overlay = this.add.container(0, 0).setDepth(2000).setScrollFactor(0);

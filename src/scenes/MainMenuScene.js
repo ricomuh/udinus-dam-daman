@@ -191,7 +191,7 @@ export class MainMenuScene extends Phaser.Scene {
         key: 'online', label: 'Online 1v1', sub: 'Matchmaking otomatis',
         icon: 'icon_friends',
         iconW: Math.round(114 / 99 * TARGET_H), iconH: TARGET_H,
-        action: () => { this.scene.start('GameScene', { mode: 'online' }); },
+        action: () => { this.scene.start('MatchmakingScene'); },
       },
     ];
 
