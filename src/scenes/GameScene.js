@@ -170,7 +170,8 @@ export class GameScene extends Phaser.Scene {
       if (!piece) return;
       const captured = data.capturedId ? this.pieces.find(p => p.id === data.capturedId) : null;
       const move = { to: data.to, isCapture: !!captured, captured };
-      this._executeMove(piece, move);
+      // fromRemote=true — jangan echo balik (anti ping-pong)
+      this._executeMove(piece, move, { fromRemote: true });
     };
     this.photon.onPlayerLeft = () => {
       if (this.gameOver) return;
@@ -776,7 +777,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ── Move execution ────────────────────────────────────────────
-  async _executeMove(piece, move) {
+  async _executeMove(piece, move, opts = {}) {
+    const fromRemote = opts.fromRemote === true;
     this.busy = true;
     this._clearSelection();
     this._clearTurnLights();
@@ -793,6 +795,7 @@ export class GameScene extends Phaser.Scene {
       });
     });
 
+    const fromNode = piece.node; // save BEFORE update (for sendMove)
     piece.node = move.to;
 
     if (move.isCapture && move.captured) {
@@ -825,10 +828,10 @@ export class GameScene extends Phaser.Scene {
 
     if (this._checkWin()) { this.busy = false; return; }
 
-    // Online: kirim move ke lawan
-    if (this.gameMode === 'online' && this.photon) {
+    // Online: kirim move ke lawan (jangan echo kalau diterima dari lawan)
+    if (this.gameMode === 'online' && this.photon && !fromRemote) {
       const capturedId = move.captured ? move.captured.id : null;
-      this.photon.sendMove(piece.id, piece.node, move.to, capturedId);
+      this.photon.sendMove(piece.id, fromNode, move.to, capturedId);
     }
 
     this._endTurn();
@@ -1094,4 +1097,42 @@ export class GameScene extends Phaser.Scene {
   }
 
   _wait(ms) { return new Promise(r => this.time.delayedCall(ms, r)); }
+
+  // ── E2E helper: instant move (bypass tween animasi, tetap kirim Photon real) ──
+  // Headless RAF lambat → tween 180ms resolve >3s. Ini mirror ular-tangga force_roll.
+  async __forceMove(piece, move) {
+    this.busy = true;
+    this._clearSelection();
+    this._clearTurnLights();
+    const { x, y } = this._nodeXY(move.to);
+    piece.sprite.setPosition(x, y); // instant, skip tween
+    const fromNode = piece.node;
+    piece.node = move.to;
+
+    if (move.isCapture && move.captured) {
+      this._capturePiece(move.captured);
+      const furtherCaptures = this._getValidMoves(piece).filter(m => m.isCapture);
+      if (furtherCaptures.length > 0 && this.gameMode === 'vsbot' && piece.player === 1) {
+        const nextMove = this._chooseBotMove(furtherCaptures.map(m => ({ piece, move: m })));
+        this.__forceMove(nextMove.piece, nextMove.move);
+        return;
+      }
+      if (furtherCaptures.length > 0 && this.gameMode !== 'online') {
+        this.multiKillPiece = piece;
+        this.validMoves = furtherCaptures;
+        this.busy = false;
+        return;
+      }
+    }
+
+    this.multiKillPiece = null;
+    if (this._checkWin()) { this.busy = false; return; }
+
+    if (this.gameMode === 'online' && this.photon) {
+      const capturedId = move.captured ? move.captured.id : null;
+      this.photon.sendMove(piece.id, fromNode, move.to, capturedId);
+    }
+    this._endTurn();
+    this.busy = false;
+  }
 }

@@ -48,6 +48,7 @@ export class PhotonManager {
 
   connect(username) {
     this._username = username;
+    this._gameStartSent = false; // guard double _sendGameStart
     const c = this.client;
     c.setUserId(username);
     // Room per 5-menit window — kedua client generate nama sama
@@ -159,6 +160,8 @@ export class PhotonManager {
   }
 
   _sendGameStart() {
+    if (this._gameStartSent) return; // prevent double fire
+    this._gameStartSent = true;
     const payload = { firstTurn: 0 }; // merah selalu mulai
     // receivers: 1 = All (termasuk sender)
     this.client.raiseEvent(EV.GAME_START, payload, { receivers: 1 });
