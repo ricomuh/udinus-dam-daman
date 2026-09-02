@@ -670,6 +670,15 @@ export class GameScene extends Phaser.Scene {
 
       const furtherCaptures = this._getValidMoves(piece).filter(m => m.isCapture);
       if (furtherCaptures.length > 0) {
+        // Bot: auto-continue multi-kill tanpa nunggu input
+        if (this.gameMode === 'vsbot' && piece.player === 1) {
+          await this._wait(400);
+          const nextMove = this._chooseBotMove(furtherCaptures.map(m => ({ piece, move: m })));
+          if (nextMove) {
+            this._executeMove(nextMove.piece, nextMove.move);
+            return;
+          }
+        }
         this.multiKillPiece = piece;
         this.validMoves = furtherCaptures;
         furtherCaptures.forEach(m => this._highlightNode(m.to, COLOR_CAPTURE));
